@@ -1,65 +1,234 @@
-import Image from "next/image";
-
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="min-h-screen bg-[#0a0a0a] noise">
+      {/* Warning Banner */}
+      <div className="border-b border-[#333] bg-[#0a0a0a]">
+        <div className="flex overflow-hidden py-2">
+          <div className="marquee flex whitespace-nowrap font-mono-data text-xs text-[#ff3333]">
+            <span className="mx-4">⚠ SECURE CONNECTION ESTABLISHED</span>
+            <span className="mx-4">(// ANONYMITY PROTOCOL ACTIVE)</span>
+            <span className="mx-4">⚠ NO IP LOGGING</span>
+            <span className="mx-4">(// END-TO-END ENCRYPTION)</span>
+            <span className="mx-4">⚠ SECURE CONNECTION ESTABLISHED</span>
+            <span className="mx-4">(// ANONYMITY PROTOCOL ACTIVE)</span>
+            <span className="mx-4">⚠ NO IP LOGGING</span>
+            <span className="mx-4">(// END-TO-END ENCRYPTION)</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Header */}
+      <header className="border-b border-[#333] px-6 py-6 md:px-12">
+        <div className="flex items-center justify-between">
+          <div className="flex items-baseline gap-4">
+            <h1 className="font-display text-2xl md:text-3xl tracking-tighter">
+              WHISTLE<span className="text-[#ff3333] blink">_</span>
+            </h1>
+            <span className="font-mono-data hidden text-xs text-[#666] md:inline">
+              v2.4.1 // BUILD 8921
+            </span>
+          </div>
+          <div className="flex items-center gap-6">
+            <span className="font-mono-data text-xs text-[#ffcc00]">
+              ● ENCRYPTED
+            </span>
+            <button className="border border-[#333] bg-[#111] px-4 py-2 font-mono-data text-xs uppercase transition-colors hover:border-[#ff3333] hover:text-[#ff3333]">
+              Access Portal
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <section className="grid-bg relative border-b border-[#333]">
+        <div className="px-6 py-20 md:px-12 md:py-32">
+          <div className="max-w-6xl">
+            <h2 className="font-display mb-8 text-5xl leading-[0.9] md:text-7xl lg:text-8xl">
+              SPEAK
+              <br />
+              <span className="text-[#888]">FREELY</span>
+              <br />
+              <span className="text-[#ff3333]">ANONYMOUSLY</span>
+            </h2>
+
+            <p className="max-w-xl font-mono-data text-sm leading-relaxed text-[#888] md:text-base">
+              A secure, encrypted platform for reporting misconduct without fear
+              of retaliation. Your identity remains protected. Your voice is
+              amplified.
+            </p>
+
+            <div className="mt-12 flex flex-wrap gap-4">
+              <button className="group relative overflow-hidden border-2 border-[#ff3333] bg-[#ff3333] px-8 py-4 font-display text-sm uppercase transition-all hover:bg-transparent">
+                <span className="relative z-10 group-hover:text-[#ff3333]">
+                  File Report
+                </span>
+              </button>
+              <button className="border border-[#333] px-8 py-4 font-display text-sm uppercase text-[#888] transition-all hover:border-[#fff] hover:text-white">
+                Learn More
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="border-b border-[#333] px-6 py-20 md:px-12">
+        <div className="mb-12 flex items-center gap-4">
+          <span className="font-mono-data text-xs text-[#666]">01</span>
+          <h3 className="font-display text-2xl">CORE_FEATURES</h3>
+          <div className="h-px flex-1 bg-[#333]"></div>
+        </div>
+
+        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+          {[
+            {
+              id: "001",
+              title: "ENCRYPTED",
+              desc: "Military-grade encryption for all submissions",
+            },
+            {
+              id: "002",
+              title: "NO TRACE",
+              desc: "Zero metadata collection or IP logging",
+            },
+            {
+              id: "003",
+              title: "TRACKABLE",
+              desc: "Anonymous case tracking with secure codes",
+            },
+            {
+              id: "004",
+              title: "PROTECTED",
+              desc: "Legal shield for whistleblowers",
+            },
+          ].map((feature) => (
+            <div
+              key={feature.id}
+              className="group border border-[#222] p-6 transition-all hover:border-[#444]"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              <div className="font-mono-data mb-4 text-xs text-[#444]">
+                {feature.id}
+              </div>
+              <h4 className="font-display mb-3 text-lg group-hover:text-[#ffcc00]">
+                {feature.title}
+              </h4>
+              <p className="font-mono-data text-xs leading-relaxed text-[#666]">
+                {feature.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="border-b border-[#333] px-6 py-20 md:px-12">
+        <div className="mb-12 flex items-center gap-4">
+          <span className="font-mono-data text-xs text-[#666]">02</span>
+          <h3 className="font-display text-2xl">PROCESS_FLOW</h3>
+          <div className="h-px flex-1 bg-[#333]"></div>
+        </div>
+
+        <div className="space-y-0">
+          {[
+            {
+              step: "01",
+              title: "SUBMIT",
+              desc: "File your complaint through our secure portal",
+            },
+            {
+              step: "02",
+              title: "ENCRYPT",
+              desc: "Data is encrypted and anonymized instantly",
+            },
+            {
+              step: "03",
+              title: "ROUTE",
+              desc: "Routed to appropriate oversight body",
+            },
+            {
+              step: "04",
+              title: "RESOLVE",
+              desc: "Track progress with your anonymous ID",
+            },
+          ].map((item, i) => (
+            <div
+              key={item.step}
+              className="flex items-start gap-6 border-b border-[#222] py-8 first:border-t"
             >
-              Learning
-            </a>{" "}
-            center.
+              <span className="font-display text-4xl text-[#333]">
+                {item.step}
+              </span>
+              <div className="flex-1">
+                <h4 className="font-display mb-2 text-xl">{item.title}</h4>
+                <p className="font-mono-data text-sm text-[#666]">
+                  {item.desc}
+                </p>
+              </div>
+              <div className="hidden text-right md:block">
+                <span className="font-mono-data text-xs text-[#444]">
+                  PHASE_{item.step}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="scanline relative px-6 py-24 md:px-12 md:py-32">
+        <div className="mx-auto max-w-4xl text-center">
+          <div className="mb-6 font-mono-data text-xs text-[#ff3333]">
+            [ WARNING: SYSTEM SECURE ]
+          </div>
+          <h3 className="font-display mb-6 text-4xl md:text-6xl">
+            YOUR VOICE MATTERS
+          </h3>
+          <p className="mb-10 font-mono-data text-sm text-[#888] md:text-base">
+            Join thousands who have spoken up without fear. Your anonymity is
+            guaranteed.
           </p>
+          <button className="glitch group relative inline-flex items-center gap-4 border-2 border-[#ff3333] bg-[#ff3333] px-10 py-5 font-display text-lg uppercase transition-all hover:bg-transparent">
+            <span className="relative z-10 group-hover:text-[#ff3333]">
+              Initialize Report
+            </span>
+            <span className="font-mono-data text-sm group-hover:text-[#ff3333]">
+              →
+            </span>
+          </button>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-[#333] bg-[#0a0a0a] px-6 py-12 md:px-12">
+        <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
+          <div className="font-mono-data text-xs text-[#444]">
+            WHISTLE_SYSTEM // EST. 2021 // SECURE_CHANNEL
+          </div>
+          <div className="flex gap-6">
+            <a
+              href="#"
+              className="font-mono-data text-xs text-[#666] hover:text-white"
+            >
+              PRIVACY
+            </a>
+            <a
+              href="#"
+              className="font-mono-data text-xs text-[#666] hover:text-white"
+            >
+              SECURITY
+            </a>
+            <a
+              href="#"
+              className="font-mono-data text-xs text-[#666] hover:text-white"
+            >
+              CONTACT
+            </a>
+          </div>
         </div>
-      </main>
+        <div className="mt-8 text-center font-mono-data text-[10px] text-[#333]">
+          THIS_SYSTEM_IS_PROTECTED_UNDER_WHISTLEBLOWER_PROTECTION_ACT
+        </div>
+      </footer>
     </div>
   );
 }
