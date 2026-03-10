@@ -114,6 +114,12 @@ body {
   animation: marquee 20s linear infinite;
 }
 
+/* Select dark theme reset */
+select option {
+  background: #0d0d0d;
+  color: #e0e0e0;
+}
+
 /* Noise texture */
 .noise {
   position: relative;

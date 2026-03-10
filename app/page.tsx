@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] noise">
@@ -32,9 +34,9 @@ export default function Home() {
             <span className="font-mono-data text-xs text-[#ffcc00]">
               ● ENCRYPTED
             </span>
-            <button className="border border-[#333] bg-[#111] px-4 py-2 font-mono-data text-xs uppercase transition-colors hover:border-[#ff3333] hover:text-[#ff3333]">
+            <Link href="/file-report" className="border border-[#333] bg-[#111] px-4 py-2 font-mono-data text-xs uppercase transition-colors hover:border-[#ff3333] hover:text-[#ff3333]">
               Access Portal
-            </button>
+            </Link>
           </div>
         </div>
       </header>
@@ -58,14 +60,14 @@ export default function Home() {
             </p>
 
             <div className="mt-12 flex flex-wrap gap-4">
-              <button className="group relative overflow-hidden border-2 border-[#ff3333] bg-[#ff3333] px-8 py-4 font-display text-sm uppercase transition-all hover:bg-transparent">
+              <Link href="/file-report" className="group relative overflow-hidden border-2 border-[#ff3333] bg-[#ff3333] px-8 py-4 font-display text-sm uppercase transition-all hover:bg-transparent">
                 <span className="relative z-10 group-hover:text-[#ff3333]">
                   File Report
                 </span>
-              </button>
-              <button className="border border-[#333] px-8 py-4 font-display text-sm uppercase text-[#888] transition-all hover:border-[#fff] hover:text-white">
+              </Link>
+              <a href="#features" className="border border-[#333] px-8 py-4 font-display text-sm uppercase text-[#888] transition-all hover:border-[#fff] hover:text-white">
                 Learn More
-              </button>
+              </a>
             </div>
           </div>
         </div>
@@ -187,14 +189,14 @@ export default function Home() {
             Join thousands who have spoken up without fear. Your anonymity is
             guaranteed.
           </p>
-          <button className="glitch group relative inline-flex items-center gap-4 border-2 border-[#ff3333] bg-[#ff3333] px-10 py-5 font-display text-lg uppercase transition-all hover:bg-transparent">
+          <Link href="/file-report" className="glitch group relative inline-flex items-center gap-4 border-2 border-[#ff3333] bg-[#ff3333] px-10 py-5 font-display text-lg uppercase transition-all hover:bg-transparent">
             <span className="relative z-10 group-hover:text-[#ff3333]">
               Initialize Report
             </span>
             <span className="font-mono-data text-sm group-hover:text-[#ff3333]">
               →
             </span>
-          </button>
+          </Link>
         </div>
       </section>
 
