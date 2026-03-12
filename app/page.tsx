@@ -34,7 +34,7 @@ export default function Home() {
             <span className="font-mono-data text-xs text-[#ffcc00]">
               ● ENCRYPTED
             </span>
-            <Link href="/file-report" className="border border-[#333] bg-[#111] px-4 py-2 font-mono-data text-xs uppercase transition-colors hover:border-[#ff3333] hover:text-[#ff3333]">
+            <Link href="/sign-in" className="border border-[#333] bg-[#111] px-4 py-2 font-mono-data text-xs uppercase transition-colors hover:border-[#ff3333] hover:text-[#ff3333]">
               Access Portal
             </Link>
           </div>
