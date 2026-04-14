@@ -13,6 +13,7 @@ interface FormData {
   title: string;
   description: string;
   priority: string;
+  evidenceLinks: string;
 }
 
 interface SubmissionResult {
@@ -63,11 +64,17 @@ function TopBanner({ institutionName }: { institutionName?: string }) {
           <span className="mx-4">⚠ SECURE CONNECTION ESTABLISHED</span>
           <span className="mx-4">// ANONYMOUS REPORTING CHANNEL</span>
           <span className="mx-4">⚠ NO IDENTITY STORED</span>
-          <span className="mx-4">// {institutionName ? institutionName.toUpperCase() : "WHISTLE_SYSTEM"}</span>
+          <span className="mx-4">
+            //{" "}
+            {institutionName ? institutionName.toUpperCase() : "WHISTLE_SYSTEM"}
+          </span>
           <span className="mx-4">⚠ SECURE CONNECTION ESTABLISHED</span>
           <span className="mx-4">// ANONYMOUS REPORTING CHANNEL</span>
           <span className="mx-4">⚠ NO IDENTITY STORED</span>
-          <span className="mx-4">// {institutionName ? institutionName.toUpperCase() : "WHISTLE_SYSTEM"}</span>
+          <span className="mx-4">
+            //{" "}
+            {institutionName ? institutionName.toUpperCase() : "WHISTLE_SYSTEM"}
+          </span>
         </div>
       </div>
     </div>
@@ -86,7 +93,8 @@ function Header({ institutionName }: { institutionName?: string }) {
             WHISTLE<span className="text-[#ff3333] blink">_</span>
           </Link>
           <span className="hidden font-mono-data text-xs text-[#666] md:inline">
-            v2.4.1 // {institutionName ? institutionName.toUpperCase() : "FILE_REPORT"}
+            v2.4.1 //{" "}
+            {institutionName ? institutionName.toUpperCase() : "FILE_REPORT"}
           </span>
         </div>
         <div className="flex items-center gap-6">
@@ -95,7 +103,7 @@ function Header({ institutionName }: { institutionName?: string }) {
           </span>
           <Link
             href="/"
-            className="border border-[#333] bg-[#111] px-4 py-2 font-mono-data text-xs uppercase transition-colors hover:border-[#666] hover:text-[#fff]"
+            className="border border-[#333] bg-[#111] px-4 py-2 font-mono-data text-xs uppercase transition-colors hover:border-[#666] hover:text-white"
           >
             ← Back
           </Link>
@@ -153,9 +161,9 @@ function FormStep({
           </span>
           <div className="font-mono-data text-xs leading-relaxed text-[#999]">
             No identity fields are collected. You will receive an{" "}
-            <span className="text-[#fff]">anonymous alias ID</span> and a{" "}
-            <span className="text-[#fff]">one-time secret token</span> to
-            track your complaint.
+            <span className="text-white">anonymous alias ID</span> and a{" "}
+            <span className="text-white">one-time secret token</span> to track
+            your complaint.
           </div>
         </div>
       </div>
@@ -300,6 +308,20 @@ function FormStep({
           </span>
         </button>
       </div>
+
+      <div>
+        <label className={labelClass}>// EVIDENCE_LINKS (OPTIONAL)</label>
+        <textarea
+          value={data.evidenceLinks}
+          onChange={(e) => onChange("evidenceLinks", e.target.value)}
+          placeholder="Paste evidence URLs, one per line (image, drive, docs, etc.)"
+          rows={4}
+          className={`${fieldClass()} resize-none leading-relaxed`}
+        />
+        <div className="font-mono-data text-[10px] text-[#666] mt-1">
+          Max 6 links. Avoid personal identity details in shared files.
+        </div>
+      </div>
     </div>
   );
 }
@@ -320,6 +342,18 @@ function ReviewStep({
     { label: "DEPARTMENT", value: data.department },
     { label: "PRIORITY", value: data.priority },
     { label: "TITLE", value: data.title },
+    {
+      label: "EVIDENCE_LINKS",
+      value:
+        data.evidenceLinks.trim().length > 0
+          ? `${
+              data.evidenceLinks
+                .split("\n")
+                .map((v) => v.trim())
+                .filter(Boolean).length
+            } LINK(S) ADDED`
+          : "NONE",
+    },
   ];
 
   return (
@@ -367,7 +401,7 @@ function ReviewStep({
       <div className="flex items-center justify-between border-t border-[#222] pt-6">
         <button
           onClick={onBack}
-          className="border border-[#333] px-8 py-4 font-display text-sm uppercase text-[#888] transition-all hover:border-[#666] hover:text-[#fff]"
+          className="border border-[#333] px-8 py-4 font-display text-sm uppercase text-[#888] transition-all hover:border-[#666] hover:text-white"
         >
           ← Edit
         </button>
@@ -513,13 +547,19 @@ function DoneStep({ result }: { result: SubmissionResult }) {
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[#222] pt-6">
         <Link
           href="/"
-          className="border border-[#333] px-8 py-4 font-display text-sm uppercase text-[#888] transition-all hover:border-[#666] hover:text-[#fff]"
+          className="border border-[#333] px-8 py-4 font-display text-sm uppercase text-[#888] transition-all hover:border-[#666] hover:text-white"
         >
           ← Home
         </Link>
         <Link
+          href="/track"
+          className="border border-[#333] px-8 py-4 font-display text-sm uppercase text-[#888] transition-all hover:border-[#666] hover:text-white"
+        >
+          Track Status
+        </Link>
+        <Link
           href="/file-report"
-          className="border border-[#333] px-8 py-4 font-display text-sm uppercase text-[#888] transition-all hover:border-[#666] hover:text-[#fff]"
+          className="border border-[#333] px-8 py-4 font-display text-sm uppercase text-[#888] transition-all hover:border-[#666] hover:text-white"
         >
           File Another
         </Link>
@@ -544,6 +584,7 @@ export default function ComplaintForm({
     title: "",
     description: "",
     priority: "",
+    evidenceLinks: "",
   });
   const [result, setResult] = useState<SubmissionResult | null>(null);
   const [submitError, setSubmitError] = useState("");
@@ -567,6 +608,11 @@ export default function ComplaintForm({
           description: formData.description,
           priority: formData.priority,
           institution_slug: institutionSlug || undefined,
+          evidence_urls: formData.evidenceLinks
+            .split("\n")
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0)
+            .slice(0, 6),
         }),
       });
 
@@ -610,7 +656,10 @@ export default function ComplaintForm({
           <div className="mb-4 flex items-center gap-4">
             <div className="h-px flex-1 bg-[#333]" />
             <span className="font-mono-data text-xs text-[#999]">
-              FILE_COMPLAINT // {institutionName ? institutionName.toUpperCase() : "ANONYMOUS_CHANNEL"}
+              FILE_COMPLAINT //{" "}
+              {institutionName
+                ? institutionName.toUpperCase()
+                : "ANONYMOUS_CHANNEL"}
             </span>
             <div className="h-px flex-1 bg-[#333]" />
           </div>

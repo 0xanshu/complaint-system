@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import type { ComplaintDetail, ComplaintStatusCode } from "@/lib/types";
 
 interface Complaint {
   complaint_id: number;
@@ -25,6 +26,22 @@ interface InstitutionInfo {
   institution_name: string | null;
   institution_slug: string | null;
 }
+
+const STATUS_OPTIONS: ComplaintStatusCode[] = [
+  "pending",
+  "under_review",
+  "investigating",
+  "resolved",
+  "dismissed",
+];
+
+const STATUS_TRANSITIONS: Record<ComplaintStatusCode, ComplaintStatusCode[]> = {
+  pending: ["under_review", "dismissed"],
+  under_review: ["investigating", "resolved", "dismissed"],
+  investigating: ["resolved", "dismissed"],
+  resolved: [],
+  dismissed: [],
+};
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "text-[#ffcc00] border-[#ffcc00]/30 bg-[#ffcc00]/5",
@@ -58,6 +75,24 @@ export default function DashboardPage() {
 
   // Expanded complaint
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [complaintDetails, setComplaintDetails] = useState<
+    Record<number, ComplaintDetail>
+  >({});
+  const [statusDrafts, setStatusDrafts] = useState<
+    Record<number, ComplaintStatusCode>
+  >({});
+  const [messageDrafts, setMessageDrafts] = useState<Record<number, string>>(
+    {},
+  );
+  const [evidenceUrlDrafts, setEvidenceUrlDrafts] = useState<
+    Record<number, string>
+  >({});
+  const [evidenceNoteDrafts, setEvidenceNoteDrafts] = useState<
+    Record<number, string>
+  >({});
+  const [savingStatusId, setSavingStatusId] = useState<number | null>(null);
+  const [sendingMessageId, setSendingMessageId] = useState<number | null>(null);
+  const [addingEvidenceId, setAddingEvidenceId] = useState<number | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -70,6 +105,14 @@ export default function DashboardPage() {
       fetchInstitution();
     }
   }, [status]);
+
+  useEffect(() => {
+    if (!expandedId || complaintDetails[expandedId]) {
+      return;
+    }
+
+    void fetchComplaintDetail(expandedId);
+  }, [expandedId, complaintDetails]);
 
   const fetchInstitution = async () => {
     try {
@@ -105,6 +148,128 @@ export default function DashboardPage() {
       setError("FAILED_TO_LOAD_COMPLAINTS");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchComplaintDetail = async (complaintId: number) => {
+    try {
+      const res = await fetch(`/api/complaints/${complaintId}`);
+      const data = await res.json();
+      if (!res.ok) {
+        return;
+      }
+
+      setComplaintDetails((prev) => ({
+        ...prev,
+        [complaintId]: data.complaint,
+      }));
+      setStatusDrafts((prev) => ({
+        ...prev,
+        [complaintId]: data.complaint.status,
+      }));
+    } catch {
+      // handled in UI by absence of timeline
+    }
+  };
+
+  const updateComplaintStatus = async (complaintId: number) => {
+    const detail = complaintDetails[complaintId];
+    const nextStatus = statusDrafts[complaintId];
+    if (!nextStatus) return;
+
+    if (
+      detail &&
+      !STATUS_TRANSITIONS[detail.status].includes(nextStatus) &&
+      detail.status !== nextStatus
+    ) {
+      setError("INVALID_STATUS_TRANSITION");
+      return;
+    }
+
+    setSavingStatusId(complaintId);
+    try {
+      const res = await fetch(`/api/complaints/${complaintId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status_code: nextStatus }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "STATUS_UPDATE_FAILED");
+        return;
+      }
+
+      setComplaintDetails((prev) => ({
+        ...prev,
+        [complaintId]: data.complaint,
+      }));
+      setStatusDrafts((prev) => ({
+        ...prev,
+        [complaintId]: data.complaint.status,
+      }));
+      await fetchComplaints();
+    } catch {
+      setError("STATUS_UPDATE_FAILED");
+    } finally {
+      setSavingStatusId(null);
+    }
+  };
+
+  const sendManagerMessage = async (complaintId: number) => {
+    const message = (messageDrafts[complaintId] ?? "").trim();
+    if (!message) return;
+
+    setSendingMessageId(complaintId);
+    try {
+      const res = await fetch(`/api/complaints/${complaintId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message_text: message }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "MESSAGE_SEND_FAILED");
+        return;
+      }
+
+      setMessageDrafts((prev) => ({ ...prev, [complaintId]: "" }));
+      await fetchComplaintDetail(complaintId);
+    } catch {
+      setError("MESSAGE_SEND_FAILED");
+    } finally {
+      setSendingMessageId(null);
+    }
+  };
+
+  const addManagerEvidence = async (complaintId: number) => {
+    const evidenceUrl = (evidenceUrlDrafts[complaintId] ?? "").trim();
+    const evidenceNote = (evidenceNoteDrafts[complaintId] ?? "").trim();
+    if (!evidenceUrl) return;
+
+    setAddingEvidenceId(complaintId);
+    try {
+      const res = await fetch(`/api/complaints/${complaintId}/evidences`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          evidence_url: evidenceUrl,
+          evidence_note: evidenceNote,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "EVIDENCE_ADD_FAILED");
+        return;
+      }
+
+      setEvidenceUrlDrafts((prev) => ({ ...prev, [complaintId]: "" }));
+      setEvidenceNoteDrafts((prev) => ({ ...prev, [complaintId]: "" }));
+      await fetchComplaintDetail(complaintId);
+    } catch {
+      setError("EVIDENCE_ADD_FAILED");
+    } finally {
+      setAddingEvidenceId(null);
     }
   };
 
@@ -180,11 +345,17 @@ export default function DashboardPage() {
             <span className="mx-4">⚠ MANAGER_DASHBOARD</span>
             <span className="mx-4">// COMPLAINT MANAGEMENT SYSTEM</span>
             <span className="mx-4">⚠ AUTHORIZED ACCESS ONLY</span>
-            <span className="mx-4">// {institution?.institution_name?.toUpperCase() || "WHISTLE_SYSTEM"}</span>
+            <span className="mx-4">
+              //{" "}
+              {institution?.institution_name?.toUpperCase() || "WHISTLE_SYSTEM"}
+            </span>
             <span className="mx-4">⚠ MANAGER_DASHBOARD</span>
             <span className="mx-4">// COMPLAINT MANAGEMENT SYSTEM</span>
             <span className="mx-4">⚠ AUTHORIZED ACCESS ONLY</span>
-            <span className="mx-4">// {institution?.institution_name?.toUpperCase() || "WHISTLE_SYSTEM"}</span>
+            <span className="mx-4">
+              //{" "}
+              {institution?.institution_name?.toUpperCase() || "WHISTLE_SYSTEM"}
+            </span>
           </div>
         </div>
       </div>
@@ -297,13 +468,23 @@ export default function DashboardPage() {
                     <input
                       type="text"
                       value={instSlug}
-                      onChange={(e) => setInstSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                      onChange={(e) =>
+                        setInstSlug(
+                          e.target.value
+                            .toLowerCase()
+                            .replace(/[^a-z0-9-]/g, ""),
+                        )
+                      }
                       placeholder="e.g. delhi-tech-university"
                       required
                       className={fieldClass}
                     />
                     <div className="font-mono-data text-[10px] text-[#666] mt-1">
-                      PUBLIC_URL: {typeof window !== "undefined" ? window.location.origin : ""}/report/{instSlug || "your-slug"}
+                      PUBLIC_URL:{" "}
+                      {typeof window !== "undefined"
+                        ? window.location.origin
+                        : ""}
+                      /report/{instSlug || "your-slug"}
                     </div>
                   </div>
                   <div className="flex gap-4 pt-2">
@@ -319,7 +500,7 @@ export default function DashboardPage() {
                     <button
                       type="button"
                       onClick={() => setShowSetup(false)}
-                      className="border border-[#333] px-6 py-3 font-display text-sm uppercase text-[#888] transition-all hover:border-[#666] hover:text-[#fff]"
+                      className="border border-[#333] px-6 py-3 font-display text-sm uppercase text-[#888] transition-all hover:border-[#666] hover:text-white"
                     >
                       Cancel
                     </button>
@@ -346,12 +527,15 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <code className="font-mono-data text-xs text-[#ffcc00]">
-                    {typeof window !== "undefined" ? window.location.origin : ""}/report/{institution.institution_slug}
+                    {typeof window !== "undefined"
+                      ? window.location.origin
+                      : ""}
+                    /report/{institution.institution_slug}
                   </code>
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(
-                        `${window.location.origin}/report/${institution.institution_slug}`
+                        `${window.location.origin}/report/${institution.institution_slug}`,
                       );
                     }}
                     className="font-mono-data text-[10px] border border-[#333] px-2 py-1 text-[#666] hover:border-[#ffcc00] hover:text-[#ffcc00] transition-colors"
@@ -377,18 +561,24 @@ export default function DashboardPage() {
           <>
             {/* Stats row */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-              {["pending", "under_review", "investigating", "resolved", "dismissed"].map(
-                (s) => (
-                  <div key={s} className="border border-[#222] p-4">
-                    <div className="font-mono-data text-[10px] text-[#666] tracking-widest mb-1">
-                      {s.toUpperCase()}
-                    </div>
-                    <div className={`font-display text-2xl ${STATUS_COLORS[s]?.split(" ")[0] || "text-[#fff]"}`}>
-                      {complaints.filter((c) => c.status === s).length}
-                    </div>
+              {[
+                "pending",
+                "under_review",
+                "investigating",
+                "resolved",
+                "dismissed",
+              ].map((s) => (
+                <div key={s} className="border border-[#222] p-4">
+                  <div className="font-mono-data text-[10px] text-[#666] tracking-widest mb-1">
+                    {s.toUpperCase()}
                   </div>
-                ),
-              )}
+                  <div
+                    className={`font-display text-2xl ${STATUS_COLORS[s]?.split(" ")[0] || "text-white"}`}
+                  >
+                    {complaints.filter((c) => c.status === s).length}
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Complaints table */}
@@ -424,89 +614,327 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Rows */}
-                {complaints.map((c) => (
-                  <div key={c.complaint_id}>
-                    <button
-                      onClick={() =>
-                        setExpandedId(
-                          expandedId === c.complaint_id
-                            ? null
-                            : c.complaint_id,
-                        )
-                      }
-                      className="w-full grid grid-cols-[1fr_120px_100px_100px_140px] gap-4 border-b border-[#1a1a1a] px-6 py-4 text-left hover:bg-[#111] transition-colors"
-                    >
-                      <span className="font-mono-data text-xs text-[#e0e0e0] truncate">
-                        {c.title}
-                      </span>
-                      <span className="font-mono-data text-[10px] text-[#999]">
-                        {c.category}
-                      </span>
-                      <span
-                        className={`font-mono-data text-[10px] uppercase ${PRIORITY_COLORS[c.priority] || "text-[#999]"}`}
+                {complaints.map((c) => {
+                  const detail = complaintDetails[c.complaint_id];
+                  const currentStatus = (detail?.status ??
+                    c.status) as ComplaintStatusCode;
+                  const allowedNextStatuses = STATUS_TRANSITIONS[currentStatus];
+                  const statusOptions = [
+                    currentStatus,
+                    ...allowedNextStatuses,
+                  ].filter(
+                    (value, index, array) => array.indexOf(value) === index,
+                  );
+
+                  return (
+                    <div key={c.complaint_id}>
+                      <button
+                        onClick={() =>
+                          setExpandedId(
+                            expandedId === c.complaint_id
+                              ? null
+                              : c.complaint_id,
+                          )
+                        }
+                        className="w-full grid grid-cols-[1fr_120px_100px_100px_140px] gap-4 border-b border-[#1a1a1a] px-6 py-4 text-left hover:bg-[#111] transition-colors"
                       >
-                        {c.priority}
-                      </span>
-                      <span
-                        className={`font-mono-data text-[10px] px-2 py-0.5 border inline-block ${STATUS_COLORS[c.status] || "text-[#999]"}`}
-                      >
-                        {c.status}
-                      </span>
-                      <span className="font-mono-data text-[10px] text-[#666]">
-                        {new Date(c.submitted_at).toLocaleDateString()}
-                      </span>
-                    </button>
+                        <span className="font-mono-data text-xs text-[#e0e0e0] truncate">
+                          {c.title}
+                        </span>
+                        <span className="font-mono-data text-[10px] text-[#999]">
+                          {c.category}
+                        </span>
+                        <span
+                          className={`font-mono-data text-[10px] uppercase ${PRIORITY_COLORS[c.priority] || "text-[#999]"}`}
+                        >
+                          {c.priority}
+                        </span>
+                        <span
+                          className={`font-mono-data text-[10px] px-2 py-0.5 border inline-block ${STATUS_COLORS[currentStatus] || "text-[#999]"}`}
+                        >
+                          {currentStatus}
+                        </span>
+                        <span className="font-mono-data text-[10px] text-[#666]">
+                          {new Date(c.submitted_at).toLocaleDateString()}
+                        </span>
+                      </button>
 
-                    {/* Expanded detail */}
-                    {expandedId === c.complaint_id && (
-                      <div className="border-b border-[#1a1a1a] bg-[#0d0d0d] px-6 py-6">
-                        <div className="grid grid-cols-[120px_1fr] gap-4 text-xs">
-                          <span className="font-mono-data text-[#666]">
-                            ALIAS_ID
-                          </span>
-                          <span className="font-mono-data text-[#999] break-all">
-                            {c.alias_id}
-                          </span>
+                      {expandedId === c.complaint_id && (
+                        <div className="border-b border-[#1a1a1a] bg-[#0d0d0d] px-6 py-6">
+                          <div className="mb-6 grid grid-cols-[120px_1fr] gap-4 text-xs">
+                            <span className="font-mono-data text-[#666]">
+                              ALIAS_ID
+                            </span>
+                            <span className="font-mono-data text-[#999] break-all">
+                              {c.alias_id}
+                            </span>
 
-                          <span className="font-mono-data text-[#666]">
-                            DEPARTMENT
-                          </span>
-                          <span className="font-mono-data text-[#e0e0e0]">
-                            {c.department}
-                          </span>
+                            <span className="font-mono-data text-[#666]">
+                              DEPARTMENT
+                            </span>
+                            <span className="font-mono-data text-[#e0e0e0]">
+                              {c.department}
+                            </span>
 
-                          <span className="font-mono-data text-[#666]">
-                            DESCRIPTION
-                          </span>
-                          <span className="font-mono-data text-[#e0e0e0] leading-relaxed whitespace-pre-wrap">
-                            {c.description}
-                          </span>
+                            <span className="font-mono-data text-[#666]">
+                              DESCRIPTION
+                            </span>
+                            <span className="font-mono-data text-[#e0e0e0] leading-relaxed whitespace-pre-wrap">
+                              {c.description}
+                            </span>
 
-                          <span className="font-mono-data text-[#666]">
-                            CONTENT_HASH
-                          </span>
-                          <span className="font-mono-data text-[#999] break-all text-[10px]">
-                            {c.content_hash}
-                          </span>
+                            <span className="font-mono-data text-[#666]">
+                              CONTENT_HASH
+                            </span>
+                            <span className="font-mono-data text-[#999] break-all text-[10px]">
+                              {c.content_hash}
+                            </span>
 
-                          <span className="font-mono-data text-[#666]">
-                            SUBMITTED
-                          </span>
-                          <span className="font-mono-data text-[#999]">
-                            {new Date(c.submitted_at).toLocaleString()}
-                          </span>
+                            <span className="font-mono-data text-[#666]">
+                              SUBMITTED
+                            </span>
+                            <span className="font-mono-data text-[#999]">
+                              {new Date(c.submitted_at).toLocaleString()}
+                            </span>
 
-                          <span className="font-mono-data text-[#666]">
-                            UPDATED
-                          </span>
-                          <span className="font-mono-data text-[#999]">
-                            {new Date(c.updated_at).toLocaleString()}
-                          </span>
+                            <span className="font-mono-data text-[#666]">
+                              UPDATED
+                            </span>
+                            <span className="font-mono-data text-[#999]">
+                              {new Date(c.updated_at).toLocaleString()}
+                            </span>
+                          </div>
+
+                          <div className="mb-6 border border-[#222] bg-[#111] p-4">
+                            <div className="mb-3 font-mono-data text-[10px] text-[#666] tracking-widest">
+                              STATUS_CONTROL
+                            </div>
+                            <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                              <div className="flex-1">
+                                <label className="mb-2 block font-mono-data text-xs text-[#999]">
+                                  // CHANGE_STATUS
+                                </label>
+                                <select
+                                  value={
+                                    statusDrafts[c.complaint_id] ??
+                                    currentStatus
+                                  }
+                                  onChange={(event) =>
+                                    setStatusDrafts((prev) => ({
+                                      ...prev,
+                                      [c.complaint_id]: event.target
+                                        .value as ComplaintStatusCode,
+                                    }))
+                                  }
+                                  disabled={allowedNextStatuses.length === 0}
+                                  className="w-full border border-[#333] bg-[#0a0a0a] px-4 py-3 font-mono-data text-sm text-[#e0e0e0] outline-none focus:border-[#666]"
+                                >
+                                  {statusOptions.map((statusOption) => (
+                                    <option
+                                      key={statusOption}
+                                      value={statusOption}
+                                    >
+                                      {statusOption.toUpperCase()}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <button
+                                onClick={() =>
+                                  updateComplaintStatus(c.complaint_id)
+                                }
+                                disabled={
+                                  savingStatusId === c.complaint_id ||
+                                  allowedNextStatuses.length === 0
+                                }
+                                className="border-2 border-[#ff3333] bg-[#ff3333] px-5 py-3 font-display text-xs uppercase transition-colors hover:bg-transparent hover:text-[#ff3333] disabled:opacity-50"
+                              >
+                                {allowedNextStatuses.length === 0
+                                  ? "STATUS LOCKED"
+                                  : savingStatusId === c.complaint_id
+                                    ? "UPDATING..."
+                                    : "Save Status"}
+                              </button>
+                            </div>
+                            {allowedNextStatuses.length === 0 && (
+                              <div className="mt-3 font-mono-data text-[10px] text-[#ffcc00]">
+                                This complaint is in a terminal state. Create a
+                                new complaint to test workflow changes, or use a
+                                fresh record that is not resolved/dismissed yet.
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="border border-[#222] bg-[#111] p-4">
+                            <div className="mb-3 font-mono-data text-[10px] text-[#666] tracking-widest">
+                              STATUS_HISTORY
+                            </div>
+                            {detail?.history?.length ? (
+                              <div className="space-y-3">
+                                {detail.history.map((entry, index) => (
+                                  <div
+                                    key={`${entry.statusCode}-${entry.changedAt}-${index}`}
+                                    className="border-l border-[#333] pl-4"
+                                  >
+                                    <div className="font-mono-data text-xs text-[#e0e0e0]">
+                                      {entry.statusCode.toUpperCase()}
+                                    </div>
+                                    <div className="font-mono-data text-[10px] text-[#666]">
+                                      {new Date(
+                                        entry.changedAt,
+                                      ).toLocaleString()}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="font-mono-data text-xs text-[#666]">
+                                No status history yet. This complaint has not
+                                been updated.
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-6 border border-[#222] bg-[#111] p-4">
+                            <div className="mb-3 font-mono-data text-[10px] text-[#666] tracking-widest">
+                              EVIDENCE_ATTACHMENTS
+                            </div>
+                            {detail?.evidences?.length ? (
+                              <div className="mb-4 space-y-2">
+                                {detail.evidences.map((evidence) => (
+                                  <div
+                                    key={evidence.id}
+                                    className="border border-[#222] p-3"
+                                  >
+                                    <a
+                                      href={evidence.evidenceUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="font-mono-data text-xs text-[#ffcc00] hover:underline break-all"
+                                    >
+                                      {evidence.evidenceUrl}
+                                    </a>
+                                    {evidence.evidenceNote && (
+                                      <div className="mt-1 font-mono-data text-[10px] text-[#999]">
+                                        NOTE: {evidence.evidenceNote}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="mb-4 font-mono-data text-xs text-[#666]">
+                                No evidence links attached yet.
+                              </div>
+                            )}
+
+                            <div className="space-y-3 border border-[#222] bg-[#0a0a0a] p-4">
+                              <div className="font-mono-data text-[10px] text-[#666] tracking-widest">
+                                ADD_EVIDENCE
+                              </div>
+                              <input
+                                value={evidenceUrlDrafts[c.complaint_id] ?? ""}
+                                onChange={(event) =>
+                                  setEvidenceUrlDrafts((prev) => ({
+                                    ...prev,
+                                    [c.complaint_id]: event.target.value,
+                                  }))
+                                }
+                                placeholder="Evidence URL"
+                                className="w-full border border-[#333] bg-[#111] px-4 py-3 font-mono-data text-xs text-[#e0e0e0] outline-none focus:border-[#666]"
+                              />
+                              <input
+                                value={evidenceNoteDrafts[c.complaint_id] ?? ""}
+                                onChange={(event) =>
+                                  setEvidenceNoteDrafts((prev) => ({
+                                    ...prev,
+                                    [c.complaint_id]: event.target.value,
+                                  }))
+                                }
+                                placeholder="Optional note"
+                                className="w-full border border-[#333] bg-[#111] px-4 py-3 font-mono-data text-xs text-[#e0e0e0] outline-none focus:border-[#666]"
+                              />
+                              <button
+                                onClick={() =>
+                                  addManagerEvidence(c.complaint_id)
+                                }
+                                disabled={addingEvidenceId === c.complaint_id}
+                                className="border border-[#ff3333] bg-[#ff3333] px-4 py-2 font-mono-data text-[10px] uppercase transition-colors hover:bg-transparent hover:text-[#ff3333] disabled:opacity-50"
+                              >
+                                {addingEvidenceId === c.complaint_id
+                                  ? "ADDING..."
+                                  : "Attach Evidence"}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mt-6 border border-[#222] bg-[#111] p-4">
+                            <div className="mb-3 font-mono-data text-[10px] text-[#666] tracking-widest">
+                              ANONYMOUS_THREAD
+                            </div>
+                            {detail?.messages?.length ? (
+                              <div className="mb-4 space-y-3">
+                                {detail.messages.map((message) => (
+                                  <div
+                                    key={message.id}
+                                    className={`border p-3 ${
+                                      message.senderRole === "manager"
+                                        ? "border-[#ff3333]/40 bg-[#ff3333]/5"
+                                        : "border-[#222] bg-[#0a0a0a]"
+                                    }`}
+                                  >
+                                    <div className="mb-1 font-mono-data text-[10px] text-[#666]">
+                                      {message.senderRole.toUpperCase()} //{" "}
+                                      {new Date(
+                                        message.createdAt,
+                                      ).toLocaleString()}
+                                    </div>
+                                    <div className="font-mono-data text-xs text-[#e0e0e0] whitespace-pre-wrap">
+                                      {message.messageText}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="mb-4 font-mono-data text-xs text-[#666]">
+                                No messages yet.
+                              </div>
+                            )}
+
+                            <div className="space-y-3 border border-[#222] bg-[#0a0a0a] p-4">
+                              <div className="font-mono-data text-[10px] text-[#666] tracking-widest">
+                                SEND_REPLY_TO_COMPLAINANT
+                              </div>
+                              <textarea
+                                value={messageDrafts[c.complaint_id] ?? ""}
+                                onChange={(event) =>
+                                  setMessageDrafts((prev) => ({
+                                    ...prev,
+                                    [c.complaint_id]: event.target.value,
+                                  }))
+                                }
+                                rows={4}
+                                placeholder="Ask follow-up questions or share status updates"
+                                className="w-full resize-none border border-[#333] bg-[#111] px-4 py-3 font-mono-data text-xs text-[#e0e0e0] outline-none focus:border-[#666]"
+                              />
+                              <button
+                                onClick={() =>
+                                  sendManagerMessage(c.complaint_id)
+                                }
+                                disabled={sendingMessageId === c.complaint_id}
+                                className="border border-[#ff3333] bg-[#ff3333] px-4 py-2 font-mono-data text-[10px] uppercase transition-colors hover:bg-transparent hover:text-[#ff3333] disabled:opacity-50"
+                              >
+                                {sendingMessageId === c.complaint_id
+                                  ? "SENDING..."
+                                  : "Send Message"}
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </>

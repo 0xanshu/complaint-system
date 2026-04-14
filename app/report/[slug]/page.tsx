@@ -11,7 +11,7 @@ export default async function InstitutionReportPage({ params }: Props) {
   const { slug } = await params;
 
   const [rows] = await pool.execute<RowDataPacket[]>(
-    "SELECT institution_name, institution_slug FROM users WHERE institution_slug = ? AND role = 'manager' LIMIT 1",
+    "SELECT institution_name, institution_slug FROM institutions WHERE institution_slug = ? LIMIT 1",
     [slug],
   );
 

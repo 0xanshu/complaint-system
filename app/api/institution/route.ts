@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 import { auth } from "@/lib/auth";
-import type { RowDataPacket } from "mysql2";
+import type { ResultSetHeader, RowDataPacket } from "mysql2";
 
 // POST — manager sets up their institution (creates the public link)
 export async function POST(req: NextRequest) {
@@ -29,22 +29,54 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check slug uniqueness
-    const [existing] = await pool.execute<RowDataPacket[]>(
-      "SELECT id FROM users WHERE institution_slug = ? AND id != ?",
-      [institution_slug, session.user.id],
+    // Check user and current institution link
+    const [userRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT u.id, u.institution_id, i.institution_slug
+       FROM users u
+       LEFT JOIN institutions i ON i.id = u.institution_id
+       WHERE u.id = ?`,
+      [session.user.id],
     );
-    if (existing.length) {
-      return NextResponse.json(
-        { error: "SLUG_ALREADY_TAKEN" },
-        { status: 409 },
-      );
+
+    if (!userRows.length) {
+      return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
     }
 
-    // Update user: set role to manager + institution info
+    let institutionId: number;
+    const current = userRows[0];
+
+    if (
+      current.institution_slug === institution_slug &&
+      current.institution_id
+    ) {
+      institutionId = current.institution_id;
+      await pool.execute(
+        "UPDATE institutions SET institution_name = ? WHERE id = ?",
+        [institution_name, institutionId],
+      );
+    } else {
+      const [existing] = await pool.execute<RowDataPacket[]>(
+        "SELECT id FROM institutions WHERE institution_slug = ?",
+        [institution_slug],
+      );
+
+      if (existing.length) {
+        return NextResponse.json(
+          { error: "SLUG_ALREADY_TAKEN" },
+          { status: 409 },
+        );
+      }
+
+      const [inserted] = await pool.execute<ResultSetHeader>(
+        "INSERT INTO institutions (institution_name, institution_slug) VALUES (?, ?)",
+        [institution_name, institution_slug],
+      );
+      institutionId = inserted.insertId;
+    }
+
     await pool.execute(
-      `UPDATE users SET role = 'manager', institution_name = ?, institution_slug = ? WHERE id = ?`,
-      [institution_name, institution_slug, session.user.id],
+      "UPDATE users SET role = 'manager', institution_id = ? WHERE id = ?",
+      [institutionId, session.user.id],
     );
 
     return NextResponse.json({
@@ -71,7 +103,10 @@ export async function GET() {
     }
 
     const [rows] = await pool.execute<RowDataPacket[]>(
-      "SELECT role, institution_name, institution_slug FROM users WHERE id = ?",
+      `SELECT u.role, i.institution_name, i.institution_slug
+       FROM users u
+       LEFT JOIN institutions i ON i.id = u.institution_id
+       WHERE u.id = ?`,
       [session.user.id],
     );
 

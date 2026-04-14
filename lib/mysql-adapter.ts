@@ -1,21 +1,32 @@
-import type { Adapter, AdapterUser, AdapterAccount, AdapterSession } from 'next-auth/adapters';
-import pool from './db';
-import type { RowDataPacket } from 'mysql2';
+import type {
+  Adapter,
+  AdapterUser,
+  AdapterAccount,
+  AdapterSession,
+} from "next-auth/adapters";
+import pool from "./db";
+import type { RowDataPacket } from "mysql2";
 
 export function MySQLAdapter(): Adapter {
   return {
     async createUser(user) {
       const id = crypto.randomUUID();
       await pool.execute(
-        'INSERT INTO users (id, name, email, emailVerified, image) VALUES (?, ?, ?, ?, ?)',
-        [id, user.name ?? null, user.email, user.emailVerified ?? null, user.image ?? null],
+        "INSERT INTO users (id, name, email, emailVerified, image) VALUES (?, ?, ?, ?, ?)",
+        [
+          id,
+          user.name ?? null,
+          user.email,
+          user.emailVerified ?? null,
+          user.image ?? null,
+        ],
       );
       return { ...user, id } as AdapterUser;
     },
 
     async getUser(id) {
       const [rows] = await pool.execute<RowDataPacket[]>(
-        'SELECT * FROM users WHERE id = ?',
+        "SELECT * FROM users WHERE id = ?",
         [id],
       );
       if (!rows.length) return null;
@@ -24,7 +35,7 @@ export function MySQLAdapter(): Adapter {
 
     async getUserByEmail(email) {
       const [rows] = await pool.execute<RowDataPacket[]>(
-        'SELECT * FROM users WHERE email = ?',
+        "SELECT * FROM users WHERE email = ?",
         [email],
       );
       if (!rows.length) return null;
@@ -45,20 +56,38 @@ export function MySQLAdapter(): Adapter {
     async updateUser(user) {
       const fields: string[] = [];
       const values: unknown[] = [];
-      if (user.name !== undefined) { fields.push('name = ?'); values.push(user.name); }
-      if (user.email !== undefined) { fields.push('email = ?'); values.push(user.email); }
-      if (user.emailVerified !== undefined) { fields.push('emailVerified = ?'); values.push(user.emailVerified); }
-      if (user.image !== undefined) { fields.push('image = ?'); values.push(user.image); }
+      if (user.name !== undefined) {
+        fields.push("name = ?");
+        values.push(user.name);
+      }
+      if (user.email !== undefined) {
+        fields.push("email = ?");
+        values.push(user.email);
+      }
+      if (user.emailVerified !== undefined) {
+        fields.push("emailVerified = ?");
+        values.push(user.emailVerified);
+      }
+      if (user.image !== undefined) {
+        fields.push("image = ?");
+        values.push(user.image);
+      }
       if (fields.length) {
         values.push(user.id);
-        await pool.execute(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values as any[]);
+        await pool.execute(
+          `UPDATE users SET ${fields.join(", ")} WHERE id = ?`,
+          values as any[],
+        );
       }
-      const [rows] = await pool.execute<RowDataPacket[]>('SELECT * FROM users WHERE id = ?', [user.id]);
+      const [rows] = await pool.execute<RowDataPacket[]>(
+        "SELECT * FROM users WHERE id = ?",
+        [user.id],
+      );
       return mapUser(rows[0]);
     },
 
     async deleteUser(userId) {
-      await pool.execute('DELETE FROM users WHERE id = ?', [userId]);
+      await pool.execute("DELETE FROM users WHERE id = ?", [userId]);
     },
 
     async linkAccount(account) {
@@ -68,10 +97,18 @@ export function MySQLAdapter(): Adapter {
          refresh_token, access_token, expires_at, token_type, scope, id_token, session_state)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          id, account.userId, account.type, account.provider, account.providerAccountId,
-          account.refresh_token ?? null, account.access_token ?? null,
-          account.expires_at ?? null, account.token_type ?? null,
-          account.scope ?? null, account.id_token ?? null, account.session_state ?? null,
+          id,
+          account.userId,
+          account.type,
+          account.provider,
+          account.providerAccountId,
+          account.refresh_token ?? null,
+          account.access_token ?? null,
+          account.expires_at ?? null,
+          account.token_type ?? null,
+          account.scope ?? null,
+          account.id_token ?? null,
+          account.session_state ?? null,
         ] as any[],
       );
       return account as AdapterAccount;
@@ -79,7 +116,7 @@ export function MySQLAdapter(): Adapter {
 
     async unlinkAccount({ provider, providerAccountId }) {
       await pool.execute(
-        'DELETE FROM accounts WHERE provider = ? AND providerAccountId = ?',
+        "DELETE FROM accounts WHERE provider = ? AND providerAccountId = ?",
         [provider, providerAccountId],
       );
     },
@@ -87,7 +124,7 @@ export function MySQLAdapter(): Adapter {
     async createSession(session) {
       const id = crypto.randomUUID();
       await pool.execute(
-        'INSERT INTO sessions (id, sessionToken, userId, expires) VALUES (?, ?, ?, ?)',
+        "INSERT INTO sessions (id, sessionToken, userId, expires) VALUES (?, ?, ?, ?)",
         [id, session.sessionToken, session.userId, session.expires],
       );
       return session as AdapterSession;
@@ -113,7 +150,9 @@ export function MySQLAdapter(): Adapter {
           id: row.u_id,
           name: row.u_name,
           email: row.u_email,
-          emailVerified: row.u_emailVerified ? new Date(row.u_emailVerified) : null,
+          emailVerified: row.u_emailVerified
+            ? new Date(row.u_emailVerified)
+            : null,
           image: row.u_image,
           role: row.u_role,
         } as AdapterUser,
@@ -123,7 +162,7 @@ export function MySQLAdapter(): Adapter {
     async updateSession(session) {
       if (session.expires) {
         await pool.execute(
-          'UPDATE sessions SET expires = ? WHERE sessionToken = ?',
+          "UPDATE sessions SET expires = ? WHERE sessionToken = ?",
           [session.expires, session.sessionToken],
         );
       }
@@ -131,12 +170,14 @@ export function MySQLAdapter(): Adapter {
     },
 
     async deleteSession(sessionToken) {
-      await pool.execute('DELETE FROM sessions WHERE sessionToken = ?', [sessionToken]);
+      await pool.execute("DELETE FROM sessions WHERE sessionToken = ?", [
+        sessionToken,
+      ]);
     },
 
     async createVerificationToken(token) {
       await pool.execute(
-        'INSERT INTO verification_tokens (identifier, token, expires) VALUES (?, ?, ?)',
+        "INSERT INTO verification_tokens (identifier, token, expires) VALUES (?, ?, ?)",
         [token.identifier, token.token, token.expires],
       );
       return token;
@@ -144,12 +185,12 @@ export function MySQLAdapter(): Adapter {
 
     async useVerificationToken({ identifier, token }) {
       const [rows] = await pool.execute<RowDataPacket[]>(
-        'SELECT * FROM verification_tokens WHERE identifier = ? AND token = ?',
+        "SELECT * FROM verification_tokens WHERE identifier = ? AND token = ?",
         [identifier, token],
       );
       if (!rows.length) return null;
       await pool.execute(
-        'DELETE FROM verification_tokens WHERE identifier = ? AND token = ?',
+        "DELETE FROM verification_tokens WHERE identifier = ? AND token = ?",
         [identifier, token],
       );
       return {

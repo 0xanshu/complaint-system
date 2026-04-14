@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Whistle Complaint System
 
-## Getting Started
+Next.js + MySQL anonymous complaint platform with:
 
-First, run the development server:
+- Credentials + OAuth auth (NextAuth v5)
+- Manager dashboard for institution-scoped complaints
+- Public complaint filing page
+- Tamper-evident complaint hash chain log
+
+## Tech Stack
+
+- Next.js App Router
+- React + TypeScript
+- MySQL (`mysql2`)
+- NextAuth v5 beta + custom MySQL adapter
+
+## Database Schema
+
+The schema is in [db/schema.sql](db/schema.sql).
+
+Tables created:
+
+- `users`
+- `accounts`
+- `sessions`
+- `verification_tokens`
+- `students`
+- `complaints`
+- `complaint_hash_log`
+
+## Setup
+
+1. Install dependencies:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bun install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Configure environment in `.env` (already present in this workspace):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `MYSQL_HOST`
+- `MYSQL_PORT`
+- `MYSQL_USER`
+- `MYSQL_PASSWORD`
+- `MYSQL_DATABASE`
+- `NEXTAUTH_URL`
+- `NEXTAUTH_SECRET`
+- Optional for OAuth buttons: `GITHUB_ID`, `GITHUB_SECRET`, `GOOGLE_ID`, `GOOGLE_SECRET`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+3. Initialize database schema:
 
-## Learn More
+- Open MySQL Workbench.
+- Connect to your MySQL server.
+- Open [db/schema.sql](db/schema.sql).
+- Click Execute.
 
-To learn more about Next.js, take a look at the following resources:
+4. Start app:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+bun run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+5. Open website:
 
-## Deploy on Vercel
+- http://localhost:3000
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Browser Testing Flow (No API Tools)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Open [sign-in page](app/sign-in/page.tsx) from `/sign-in`.
+2. Switch to `REGISTER`, create account, submit.
+3. You should be redirected to `/dashboard`.
+4. On dashboard, configure institution name + slug.
+5. Copy/open your public report URL shown there (`/report/<slug>`).
+6. Submit a complaint from that page.
+7. Return to dashboard and verify complaint appears in the list.
+
+Also available:
+
+- Home page CTA uses `/file-report` (requires login in current code).
+- Public institutional page `/report/<slug>` allows anonymous filing for that manager.
+
+## Current Project Status
+
+Implemented:
+
+- Registration endpoint and credentials login
+- NextAuth adapter integration for MySQL
+- Manager institution setup flow
+- Anonymous complaint submission
+- Manager/admin complaint fetch logic
+- Public report-by-slug page
+
+Not yet implemented:
+
+- A complainant-facing token tracking page (token is generated but no UI endpoint exists to query by token yet)

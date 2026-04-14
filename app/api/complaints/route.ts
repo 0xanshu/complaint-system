@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 import { auth } from "@/lib/auth";
-import type { RowDataPacket } from "mysql2";
+import type { ResultSetHeader, RowDataPacket } from "mysql2";
 
 // POST — submit a new complaint (no auth required, anonymous)
 export async function POST(req: NextRequest) {
+  let connection: Awaited<ReturnType<typeof pool.getConnection>> | null = null;
+
   try {
     const body = await req.json();
-    const { category, department, title, description, priority, institution_slug } = body;
+    const {
+      category,
+      department,
+      title,
+      description,
+      priority,
+      institution_slug,
+      evidence_urls,
+    } = body;
 
     // Validate required fields
     if (!category || !department || !title || !description || !priority) {
@@ -18,10 +28,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (title.trim().length < 8) {
-      return NextResponse.json(
-        { error: "TITLE_MIN_8_CHARS" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "TITLE_MIN_8_CHARS" }, { status: 400 });
     }
 
     if (description.trim().length < 30) {
@@ -31,10 +38,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const categoryCode = String(category).trim().toUpperCase();
+    const departmentCode = String(department).trim().toUpperCase();
+    const priorityCode = String(priority).trim().toLowerCase();
+    const evidenceUrls = Array.isArray(evidence_urls)
+      ? evidence_urls
+          .map((value) => String(value).trim())
+          .filter((value) => value.length > 0)
+          .slice(0, 6)
+      : [];
+
     // If institution_slug provided, verify it exists
+    let institutionId: number | null = null;
     if (institution_slug) {
       const [inst] = await pool.execute<RowDataPacket[]>(
-        "SELECT id FROM users WHERE institution_slug = ? AND role = 'manager'",
+        "SELECT id FROM institutions WHERE institution_slug = ?",
         [institution_slug],
       );
       if (!inst.length) {
@@ -43,7 +61,50 @@ export async function POST(req: NextRequest) {
           { status: 404 },
         );
       }
+      institutionId = inst[0].id;
     }
+
+    const [categoryRows] = await pool.execute<RowDataPacket[]>(
+      "SELECT id FROM complaint_categories WHERE code = ?",
+      [categoryCode],
+    );
+    if (!categoryRows.length) {
+      return NextResponse.json({ error: "INVALID_CATEGORY" }, { status: 400 });
+    }
+
+    const [departmentRows] = await pool.execute<RowDataPacket[]>(
+      "SELECT id FROM departments WHERE code = ?",
+      [departmentCode],
+    );
+    if (!departmentRows.length) {
+      return NextResponse.json(
+        { error: "INVALID_DEPARTMENT" },
+        { status: 400 },
+      );
+    }
+
+    const [priorityRows] = await pool.execute<RowDataPacket[]>(
+      "SELECT id FROM complaint_priorities WHERE code = ?",
+      [priorityCode],
+    );
+    if (!priorityRows.length) {
+      return NextResponse.json({ error: "INVALID_PRIORITY" }, { status: 400 });
+    }
+
+    const [statusRows] = await pool.execute<RowDataPacket[]>(
+      "SELECT id FROM complaint_statuses WHERE code = 'pending'",
+    );
+    if (!statusRows.length) {
+      return NextResponse.json(
+        { error: "STATUS_LOOKUP_MISSING" },
+        { status: 500 },
+      );
+    }
+
+    const categoryId = categoryRows[0].id;
+    const departmentId = departmentRows[0].id;
+    const priorityId = priorityRows[0].id;
+    const statusId = statusRows[0].id;
 
     // Generate alias_id for the complaint
     const alias_id = crypto.randomUUID();
@@ -52,7 +113,10 @@ export async function POST(req: NextRequest) {
     const submitted_at = new Date().toISOString();
     const hashInput = alias_id + title + description + submitted_at;
     const encoder = new TextEncoder();
-    const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(hashInput));
+    const hashBuffer = await crypto.subtle.digest(
+      "SHA-256",
+      encoder.encode(hashInput),
+    );
     const content_hash = Array.from(new Uint8Array(hashBuffer))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
@@ -64,50 +128,82 @@ export async function POST(req: NextRequest) {
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
 
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
     // Insert into students table FIRST (alias vault) — FK constraint requires this before complaints
-    await pool.execute(
+    await connection.execute(
       "INSERT INTO students (alias_id, roll_hash, session_token) VALUES (?, ?, ?)",
       [alias_id, content_hash, secret_token],
     );
 
     // Insert complaint
-    const [result] = await pool.execute(
-      `INSERT INTO complaints (alias_id, category, department, institution_slug, title, description, priority, content_hash)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    const [result] = await connection.execute<ResultSetHeader>(
+      `INSERT INTO complaints (
+         alias_id,
+         institution_id,
+         category_id,
+         department_id,
+         status_id,
+         priority_id,
+         title,
+         description,
+         content_hash
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         alias_id,
-        category,
-        department,
-        institution_slug ?? null,
+        institutionId,
+        categoryId,
+        departmentId,
+        statusId,
+        priorityId,
         title,
         description,
-        priority.toLowerCase(),
         content_hash,
-      ] as any[],
+      ],
     );
 
-    const complaint_id = (result as any).insertId;
+    const complaint_id = result.insertId;
 
     // Insert into complaint_hash_log (blockchain-lite chain)
     // Get previous hash for chain
-    const [prevRows] = await pool.execute<RowDataPacket[]>(
-      "SELECT sha256_hash, block_index FROM complaint_hash_log ORDER BY block_index DESC LIMIT 1",
+    const [prevRows] = await connection.execute<RowDataPacket[]>(
+      "SELECT sha256_hash, block_index FROM complaint_hash_log ORDER BY block_index DESC LIMIT 1 FOR UPDATE",
     );
-    const previous_hash = prevRows.length ? prevRows[0].sha256_hash : "0".repeat(64);
+    const previous_hash = prevRows.length
+      ? prevRows[0].sha256_hash
+      : "0".repeat(64);
     const block_index = prevRows.length ? prevRows[0].block_index + 1 : 1;
 
     // Block hash = SHA-256(previous_hash + content_hash + block_index)
     const blockInput = previous_hash + content_hash + String(block_index);
-    const blockBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(blockInput));
+    const blockBuffer = await crypto.subtle.digest(
+      "SHA-256",
+      encoder.encode(blockInput),
+    );
     const block_hash = Array.from(new Uint8Array(blockBuffer))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
 
-    await pool.execute(
+    await connection.execute(
       `INSERT INTO complaint_hash_log (complaint_id, sha256_hash, previous_hash, block_index)
        VALUES (?, ?, ?, ?)`,
       [complaint_id, block_hash, previous_hash, block_index],
     );
+
+    if (evidenceUrls.length > 0) {
+      for (const url of evidenceUrls) {
+        await connection.execute(
+          `INSERT INTO complaint_evidences (complaint_id, evidence_url, uploaded_by_role)
+           VALUES (?, ?, 'complainant')`,
+          [complaint_id, url],
+        );
+      }
+    }
+
+    await connection.commit();
+    connection.release();
+    connection = null;
 
     return NextResponse.json(
       {
@@ -121,6 +217,10 @@ export async function POST(req: NextRequest) {
       { status: 201 },
     );
   } catch (error) {
+    if (connection) {
+      await connection.rollback();
+      connection.release();
+    }
     console.error("Complaint submission error:", error);
     return NextResponse.json(
       { error: "INTERNAL_SERVER_ERROR" },
@@ -135,23 +235,17 @@ export async function GET() {
     const session = await auth();
 
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "UNAUTHORIZED" },
-        { status: 401 },
-      );
+      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
     }
 
     // Get user role and institution
     const [userRows] = await pool.execute<RowDataPacket[]>(
-      "SELECT role, institution_slug FROM users WHERE id = ?",
+      "SELECT role, institution_id FROM users WHERE id = ?",
       [session.user.id],
     );
 
     if (!userRows.length) {
-      return NextResponse.json(
-        { error: "USER_NOT_FOUND" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
     }
 
     const user = userRows[0];
@@ -164,26 +258,24 @@ export async function GET() {
     }
 
     // Admin sees all, manager sees only their institution
-    let query: string;
-    let params: any[];
+    let query = `SELECT complaint_id, alias_id, category, department, institution_slug,
+                 title, description, status, priority, content_hash, submitted_at, updated_at
+                 FROM vw_complaint_dashboard`;
+    const params: any[] = [];
 
     if (user.role === "admin") {
-      query = `SELECT complaint_id, alias_id, category, department, institution_slug, 
-               title, description, status, priority, content_hash, submitted_at, updated_at
-               FROM complaints ORDER BY submitted_at DESC`;
-      params = [];
     } else {
-      if (!user.institution_slug) {
+      if (!user.institution_id) {
         return NextResponse.json(
           { error: "NO_INSTITUTION_CONFIGURED" },
           { status: 400 },
         );
       }
-      query = `SELECT complaint_id, alias_id, category, department, institution_slug,
-               title, description, status, priority, content_hash, submitted_at, updated_at
-               FROM complaints WHERE institution_slug = ? ORDER BY submitted_at DESC`;
-      params = [user.institution_slug];
+      query += " WHERE institution_id = ?";
+      params.push(user.institution_id);
     }
+
+    query += " ORDER BY submitted_at DESC";
 
     const [complaints] = await pool.execute<RowDataPacket[]>(query, params);
 
