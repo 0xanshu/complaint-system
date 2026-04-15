@@ -26,7 +26,6 @@ Tables created:
 - `verification_tokens`
 - `students`
 - `complaints`
-- `complaint_hash_log`
 
 ## Setup
 

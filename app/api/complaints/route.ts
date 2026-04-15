@@ -165,32 +165,6 @@ export async function POST(req: NextRequest) {
 
     const complaint_id = result.insertId;
 
-    // Insert into complaint_hash_log (blockchain-lite chain)
-    // Get previous hash for chain
-    const [prevRows] = await connection.execute<RowDataPacket[]>(
-      "SELECT sha256_hash, block_index FROM complaint_hash_log ORDER BY block_index DESC LIMIT 1 FOR UPDATE",
-    );
-    const previous_hash = prevRows.length
-      ? prevRows[0].sha256_hash
-      : "0".repeat(64);
-    const block_index = prevRows.length ? prevRows[0].block_index + 1 : 1;
-
-    // Block hash = SHA-256(previous_hash + content_hash + block_index)
-    const blockInput = previous_hash + content_hash + String(block_index);
-    const blockBuffer = await crypto.subtle.digest(
-      "SHA-256",
-      encoder.encode(blockInput),
-    );
-    const block_hash = Array.from(new Uint8Array(blockBuffer))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-
-    await connection.execute(
-      `INSERT INTO complaint_hash_log (complaint_id, sha256_hash, previous_hash, block_index)
-       VALUES (?, ?, ?, ?)`,
-      [complaint_id, block_hash, previous_hash, block_index],
-    );
-
     if (evidenceUrls.length > 0) {
       for (const url of evidenceUrls) {
         await connection.execute(
@@ -210,8 +184,6 @@ export async function POST(req: NextRequest) {
         message: "COMPLAINT_FILED",
         alias_id,
         secret_token,
-        content_hash,
-        block_index,
         submitted_at,
       },
       { status: 201 },

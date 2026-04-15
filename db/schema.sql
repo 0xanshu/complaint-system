@@ -13,7 +13,6 @@ DROP TRIGGER IF EXISTS trg_complaints_status_audit;
 DROP TABLE IF EXISTS complaint_status_history;
 DROP TABLE IF EXISTS complaint_messages;
 DROP TABLE IF EXISTS complaint_evidences;
-DROP TABLE IF EXISTS complaint_hash_log;
 DROP TABLE IF EXISTS complaints;
 DROP TABLE IF EXISTS students;
 DROP TABLE IF EXISTS sessions;
