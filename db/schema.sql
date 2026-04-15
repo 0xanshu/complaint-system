@@ -179,22 +179,6 @@ CREATE TABLE complaints (
     REFERENCES complaint_priorities(id) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Tamper-evident hash chain for complaints
-CREATE TABLE complaint_hash_log (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  complaint_id BIGINT UNSIGNED NOT NULL,
-  sha256_hash CHAR(64) NOT NULL,
-  previous_hash CHAR(64) NOT NULL,
-  block_index BIGINT UNSIGNED NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  UNIQUE KEY uq_complaint_hash_log_sha256_hash (sha256_hash),
-  UNIQUE KEY uq_complaint_hash_log_block_index (block_index),
-  KEY idx_complaint_hash_log_complaint_id (complaint_id),
-  CONSTRAINT fk_hash_log_complaint FOREIGN KEY (complaint_id)
-    REFERENCES complaints(complaint_id) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 -- Evidence references for each complaint (URL-based attachments)
 CREATE TABLE complaint_evidences (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
