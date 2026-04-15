@@ -9,6 +9,11 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 DROP VIEW IF EXISTS vw_complaint_dashboard;
 DROP TRIGGER IF EXISTS trg_complaints_status_audit;
+DROP TRIGGER IF EXISTS trg_users_validate_insert;
+DROP TRIGGER IF EXISTS trg_users_validate_update;
+DROP TRIGGER IF EXISTS trg_complaints_validate_insert;
+DROP TRIGGER IF EXISTS trg_complaints_validate_update;
+DROP TRIGGER IF EXISTS trg_evidences_validate_insert;
 
 DROP TABLE IF EXISTS complaint_status_history;
 DROP TABLE IF EXISTS complaint_messages;
@@ -156,7 +161,6 @@ CREATE TABLE complaints (
   priority_id SMALLINT UNSIGNED NOT NULL,
   title VARCHAR(255) NOT NULL,
   description TEXT NOT NULL,
-  content_hash CHAR(64) NOT NULL,
   submitted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (complaint_id),
@@ -292,6 +296,59 @@ BEGIN
     );
   END IF;
 END$$
+
+-- Data validation BEFORE triggers to enforce data consistency / 1NF atomicity invariants
+CREATE TRIGGER trg_users_validate_insert
+BEFORE INSERT ON users
+FOR EACH ROW
+BEGIN
+  IF TRIM(NEW.email) = '' OR NEW.email NOT LIKE '%_@__%.__%' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid email address format';
+  END IF;
+END$$
+
+CREATE TRIGGER trg_users_validate_update
+BEFORE UPDATE ON users
+FOR EACH ROW
+BEGIN
+  IF TRIM(NEW.email) = '' OR NEW.email NOT LIKE '%_@__%.__%' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid email address format';
+  END IF;
+END$$
+
+CREATE TRIGGER trg_complaints_validate_insert
+BEFORE INSERT ON complaints
+FOR EACH ROW
+BEGIN
+  IF TRIM(NEW.title) = '' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Complaint title cannot be empty or just whitespace';
+  END IF;
+  IF TRIM(NEW.description) = '' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Complaint description cannot be empty or just whitespace';
+  END IF;
+END$$
+
+CREATE TRIGGER trg_complaints_validate_update
+BEFORE UPDATE ON complaints
+FOR EACH ROW
+BEGIN
+  IF TRIM(NEW.title) = '' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Complaint title cannot be empty or just whitespace';
+  END IF;
+  IF TRIM(NEW.description) = '' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Complaint description cannot be empty or just whitespace';
+  END IF;
+END$$
+
+CREATE TRIGGER trg_evidences_validate_insert
+BEFORE INSERT ON complaint_evidences
+FOR EACH ROW
+BEGIN
+  IF TRIM(NEW.evidence_url) = '' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Evidence URL cannot be empty or just whitespace';
+  END IF;
+END$$
+
 DELIMITER ;
 
 CREATE VIEW vw_complaint_dashboard AS
@@ -306,7 +363,6 @@ SELECT
   cp.code AS priority,
   c.title,
   c.description,
-  c.content_hash,
   c.submitted_at,
   c.updated_at
 FROM complaints c
