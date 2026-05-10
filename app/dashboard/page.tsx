@@ -16,7 +16,6 @@ interface Complaint {
   description: string;
   status: string;
   priority: string;
-  content_hash: string;
   submitted_at: string;
   updated_at: string;
 }
@@ -681,13 +680,6 @@ export default function DashboardPage() {
                             </span>
                             <span className="font-mono-data text-[#e0e0e0] leading-relaxed whitespace-pre-wrap">
                               {c.description}
-                            </span>
-
-                            <span className="font-mono-data text-[#666]">
-                              CONTENT_HASH
-                            </span>
-                            <span className="font-mono-data text-[#999] break-all text-[10px]">
-                              {c.content_hash}
                             </span>
 
                             <span className="font-mono-data text-[#666]">

@@ -14,7 +14,6 @@ type TokenComplaintRow = RowDataPacket & {
   priority: string;
   title: string;
   description: string;
-  content_hash: string;
   submitted_at: Date | string;
   updated_at: Date | string;
 };
@@ -65,7 +64,6 @@ export async function POST(req: NextRequest) {
          cp.code AS priority,
          c.title,
          c.description,
-         c.content_hash,
          c.submitted_at,
          c.updated_at
        FROM students s
@@ -124,7 +122,6 @@ export async function POST(req: NextRequest) {
       priority: complaint.priority as ComplaintDetail["priority"],
       title: complaint.title,
       description: complaint.description,
-      contentHash: complaint.content_hash,
       submittedAt: new Date(complaint.submitted_at).toISOString(),
       updatedAt: new Date(complaint.updated_at).toISOString(),
       history: historyRows.map((history) => ({

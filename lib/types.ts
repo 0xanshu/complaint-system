@@ -64,7 +64,6 @@ export interface ComplaintDetail {
   priority: ComplaintPriorityCode;
   title: string;
   description: string;
-  contentHash: string;
   submittedAt: string;
   updatedAt: string;
   history: ComplaintHistoryEntry[];

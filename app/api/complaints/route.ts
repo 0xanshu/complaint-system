@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
       "SHA-256",
       encoder.encode(hashInput),
     );
-    const content_hash = Array.from(new Uint8Array(hashBuffer))
+    const roll_hash = Array.from(new Uint8Array(hashBuffer))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
 
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
     // Insert into students table FIRST (alias vault) — FK constraint requires this before complaints
     await connection.execute(
       "INSERT INTO students (alias_id, roll_hash, session_token) VALUES (?, ?, ?)",
-      [alias_id, content_hash, secret_token],
+      [alias_id, roll_hash, secret_token],
     );
 
     // Insert complaint
@@ -147,9 +147,8 @@ export async function POST(req: NextRequest) {
          status_id,
          priority_id,
          title,
-         description,
-         content_hash
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         description
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         alias_id,
         institutionId,
@@ -159,7 +158,6 @@ export async function POST(req: NextRequest) {
         priorityId,
         title,
         description,
-        content_hash,
       ],
     );
 
@@ -231,7 +229,7 @@ export async function GET() {
 
     // Admin sees all, manager sees only their institution
     let query = `SELECT complaint_id, alias_id, category, department, institution_slug,
-                 title, description, status, priority, content_hash, submitted_at, updated_at
+                 title, description, status, priority, submitted_at, updated_at
                  FROM vw_complaint_dashboard`;
     const params: any[] = [];
 

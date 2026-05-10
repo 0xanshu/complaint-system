@@ -19,8 +19,6 @@ interface FormData {
 interface SubmissionResult {
   aliasId: string;
   secretToken: string;
-  contentHash: string;
-  blockIndex: number;
   submittedAt: string;
 }
 
@@ -468,18 +466,6 @@ function DoneStep({ result }: { result: SubmissionResult }) {
       warn: true,
     },
     {
-      label: "CONTENT_HASH",
-      value: result.contentHash,
-      desc: "SHA-256 fingerprint of your submission.",
-      color: "text-[#888]",
-    },
-    {
-      label: "BLOCK_INDEX",
-      value: String(result.blockIndex),
-      desc: "Position in the tamper-evident hash chain.",
-      color: "text-[#888]",
-    },
-    {
       label: "SUBMITTED_AT",
       value: result.submittedAt,
       desc: "Timestamp of your submission.",
@@ -627,8 +613,6 @@ export default function ComplaintForm({
       setResult({
         aliasId: data.alias_id,
         secretToken: data.secret_token,
-        contentHash: data.content_hash,
-        blockIndex: data.block_index,
         submittedAt: data.submitted_at,
       });
       setStep("done");

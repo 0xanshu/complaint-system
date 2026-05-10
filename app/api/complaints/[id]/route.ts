@@ -23,7 +23,6 @@ type ComplaintRow = RowDataPacket & {
   priority: string;
   title: string;
   description: string;
-  content_hash: string;
   submitted_at: Date | string;
   updated_at: Date | string;
 };
@@ -65,7 +64,6 @@ async function loadComplaintDetail(
        cp.code AS priority,
        c.title,
        c.description,
-       c.content_hash,
        c.submitted_at,
        c.updated_at
      FROM complaints c
@@ -119,7 +117,6 @@ async function loadComplaintDetail(
     priority: row.priority as ComplaintDetail["priority"],
     title: row.title,
     description: row.description,
-    contentHash: row.content_hash,
     submittedAt: new Date(row.submitted_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
     history: historyRows.map((history) => ({
